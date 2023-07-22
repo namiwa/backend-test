@@ -59,7 +59,7 @@ type (
 	}
 )
 
-const EXCHANGE_URL string = "https://api.coinbase.com/v2/exchange-rates"
+const EXCHANGE_URL string = "https://api.coinbase.com/v2"
 
 var myClient = &http.Client{Timeout: 10 * time.Second}
 var validate = validator.New()
@@ -182,7 +182,7 @@ func getExchange(base *string) *ExchangeResponse {
 		if *base == "crypto" {
 			currency = "BTC"
 		}
-		url = fmt.Sprint(EXCHANGE_URL, "?currency=", currency)
+		url = fmt.Sprint(EXCHANGE_URL, "/exchange-rates", "?currency=", currency)
 	}
 	getJson(url, exchange_response)
 	return exchange_response
