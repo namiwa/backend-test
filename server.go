@@ -1,18 +1,26 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"log"
+	"time"
 
+	"github.com/go-co-op/gocron"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
-	app := Setup()
+	app := SetupApp()
+	db := SetupDb()
+	SetupCron(db)
+	defer db.Close()
 	log.Fatal(app.Listen(":3000"))
 }
 
-func Setup() *fiber.App {
+func SetupApp() *fiber.App {
 	app := fiber.New()
 	app.Use(recover.New())
 
@@ -40,4 +48,21 @@ func Setup() *fiber.App {
 	})
 
 	return app
+}
+
+func SetupDb() *sql.DB {
+	db, err := sql.Open("sqlite3", "./main.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	return db
+}
+
+func SetupCron(db *sql.DB) {
+	s := gocron.NewScheduler(time.UTC)
+	now := time.Now()
+	fmt.Println(db.Stats().Idle)
+	s.Every(1).Minute().StartAt(now).Do(func() {
+		fmt.Println(db.Stats().Idle, db.Stats().InUse)
+	})
 }

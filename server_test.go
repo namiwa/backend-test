@@ -22,7 +22,7 @@ func Test_main(t *testing.T) {
 		},
 	}
 
-	app := Setup()
+	app := SetupApp()
 
 	for _, test := range tests {
 		// from the test case
@@ -128,7 +128,7 @@ func Test_rates(t *testing.T) {
 		},
 	}
 
-	app := Setup()
+	app := SetupApp()
 
 	for _, test := range tests {
 		mockRes := ExchangeResponse{
