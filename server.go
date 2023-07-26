@@ -4,12 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"time"
 
-	"github.com/go-co-op/gocron"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/robfig/cron/v3"
 )
 
 func main() {
@@ -18,6 +17,9 @@ func main() {
 	SetupCron(db)
 	defer db.Close()
 	log.Fatal(app.Listen(":3000"))
+	for {
+		select {}
+	}
 }
 
 func SetupApp() *fiber.App {
@@ -59,10 +61,14 @@ func SetupDb() *sql.DB {
 }
 
 func SetupCron(db *sql.DB) {
-	s := gocron.NewScheduler(time.UTC)
-	now := time.Now()
-	fmt.Println(db.Stats().Idle)
-	s.Every(1).Minute().StartAt(now).Do(func() {
-		fmt.Println(db.Stats().Idle, db.Stats().InUse)
+	s := cron.New()
+	fmt.Println(db.Stats().MaxOpenConnections)
+	val, err := s.AddFunc("*/1 * * * *", func() {
+		fmt.Println("hi there!")
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(s.Entries(), val)
+	s.Start()
 }
