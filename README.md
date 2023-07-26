@@ -21,3 +21,7 @@ backend-test> go run .
  │ Prefork ....... Disabled  PID ............. 31080 │
  └───────────────────────────────────────────────────┘
 ```
+
+## Scheduler limitations
+
+The cron scheduler is limited to jobs where 1 minute is the smallest interval to queue them. So for this case, its not possible to do the data refresh in smaller timescales then seconds.

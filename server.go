@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -53,22 +55,82 @@ func SetupApp() *fiber.App {
 }
 
 func SetupDb() *sql.DB {
-	db, err := sql.Open("sqlite3", "./main.db")
+	var db_file string
+	if flag.Lookup("test.v") == nil {
+		db_file = "./main.db"
+	} else {
+		db_file = "./test.db"
+	}
+
+	db, err := sql.Open("sqlite3", db_file)
 	if err != nil {
 		log.Fatal(err)
 	}
+	createSql := `
+	create table if not exists rates (
+		id integer not null primary key,
+		SGD double,
+		EUR double,
+		BTC double,
+		DOGE double,
+		ETH double
+	);
+	`
+	_, err = db.Exec(createSql)
+	if err != nil {
+		log.Fatal("error creating rates database", err)
+	}
+
 	return db
 }
 
 func SetupCron(db *sql.DB) {
 	s := cron.New()
-	fmt.Println(db.Stats().MaxOpenConnections)
-	val, err := s.AddFunc("*/1 * * * *", func() {
-		fmt.Println("hi there!")
+	fmt.Println("Starting cron scheduler")
+	_, err := s.AddFunc("*/1 * * * *", func() {
+		fmt.Println("fetching data from api")
+		base := "USD"
+		data := getExchange(&base)
+		if data == nil {
+			fmt.Println("Error encountered fetching data, trying again 1 minute")
+			return
+		}
+		utcTimestamp := time.Now().UTC().Unix()
+
+		sgd, _ := data.Data.Rates.SGD.Float64()
+		eur, _ := data.Data.Rates.EUR.Float64()
+		btc, _ := data.Data.Rates.BTC.Float64()
+		doge, _ := data.Data.Rates.DOGE.Float64()
+		eth, _ := data.Data.Rates.ETH.Float64()
+
+		insertSql := fmt.Sprintf(`
+		insert into 
+			rates(id, SGD, EUR, BTC, DOGE, ETH)
+		values(
+			'%d',
+			%f,
+			%f,
+			%f,
+			%f,
+			%f
+		);`,
+			utcTimestamp,
+			sgd,
+			eur,
+			btc,
+			doge,
+			eth,
+		)
+		fmt.Println("writing statement", insertSql)
+		_, err := db.Exec(insertSql)
+		if err != nil {
+			fmt.Println("error writing to db", err)
+			return
+		}
+		fmt.Println("Data fetch & db store success")
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(s.Entries(), val)
 	s.Start()
 }
