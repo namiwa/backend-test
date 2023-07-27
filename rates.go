@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,13 @@ import (
 type (
 	ExchangePayload struct {
 		Base *string `validate:"oneof=crypto fiat ''"`
+	}
+
+	ExchangeHistoricPayload struct {
+		BaseCurrency   *string `validate:"oneof=USD SGD EUR BTC DOGE ETH"`
+		TargetCurrency *string `validate:"oneof=USD SGD EUR BTC DOGE ETH"`
+		Start          *string `validate:"required"`
+		End            *string
 	}
 
 	ExchangeResponse struct {
@@ -52,6 +60,15 @@ type (
 		USD RatesCryptoBlock
 		SGD RatesCryptoBlock
 		EUR RatesCryptoBlock
+	}
+
+	TimeSeries struct {
+		Timestamp int
+		Value     string
+	}
+
+	HistoricResponse struct {
+		Results []TimeSeries
 	}
 
 	PayloadErrors struct {
@@ -93,7 +110,7 @@ func parsePayloadErrors(errors []PayloadErrors) *string {
 	return &strMsg
 }
 
-func validateExchangePayload(payload *ExchangePayload) *string {
+func validateExchangePayload(payload interface{}) *string {
 	validationErrors := []PayloadErrors{}
 	errs := validate.Struct(payload)
 	if errs != nil {
@@ -257,4 +274,61 @@ func getExchangeDB(base *string, db *sql.DB) *ExchangeResponse {
 	}
 
 	return nil
+}
+
+func getExchangeHistoric(payload ExchangeHistoricPayload, db *sql.DB) *HistoricResponse {
+	start, err := strconv.ParseInt(*payload.Start, 10, 64)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	var end int64
+	if *payload.End == string("") {
+		end = time.Now().UTC().Unix()
+	} else {
+		end, err = strconv.ParseInt(*payload.End, 10, 64)
+		if err != nil {
+			end = time.Now().UTC().Unix()
+		}
+	}
+
+	base := *payload.BaseCurrency
+	target := *payload.TargetCurrency
+
+	fetchSql := fmt.Sprintf(`
+	select %s, %s, id from rates
+	where id >= %d and id <= %d;
+	`, base, target, start, end)
+
+	rows, err := db.Query(fetchSql)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	defer rows.Close()
+	res := new(HistoricResponse)
+	timeseries := make([]TimeSeries, 0)
+	for rows.Next() {
+		var timestamp int
+		var target float64
+		var base float64
+		err := rows.Scan(
+			&base,
+			&target,
+			&timestamp,
+		)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		dataPoint := TimeSeries{
+			Timestamp: timestamp,
+			Value:     fmt.Sprintf("%f", target/base),
+		}
+		timeseries = append(timeseries, dataPoint)
+	}
+
+	res.Results = timeseries
+	return res
 }

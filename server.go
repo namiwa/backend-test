@@ -81,6 +81,36 @@ func SetupApp(db *sql.DB) *fiber.App {
 		}
 	})
 
+	app.Get("/historical-rates", func(c *fiber.Ctx) error {
+		baseCurrency := c.Query("baseCurrency")
+		targetCurrency := c.Query("targetCurrency")
+		start := c.Query("start")
+		end := c.Query("end")
+
+		payload := ExchangeHistoricPayload{
+			BaseCurrency:   &baseCurrency,
+			TargetCurrency: &targetCurrency,
+			Start:          &start,
+			End:            &end,
+		}
+
+		errMsg := validateExchangePayload(payload)
+		if errMsg != nil {
+			return fiber.NewError(fiber.StatusUnprocessableEntity, *errMsg)
+		}
+
+		if *payload.Start == string("") {
+			return fiber.NewError(fiber.StatusUnprocessableEntity, "[start]: start invalid time ''")
+		}
+
+		data := getExchangeHistoric(payload, db)
+		if data == nil {
+			return fiber.NewError(fiber.StatusUnprocessableEntity, "unable to get data from db")
+		}
+
+		return c.JSON(*data)
+	})
+
 	return app
 }
 
@@ -93,6 +123,7 @@ func SetupDb() *sql.DB {
 	createSql := `
 	create table if not exists rates (
 		id integer not null primary key,
+		USD double default 1,
 		SGD double,
 		EUR double,
 		BTC double,
