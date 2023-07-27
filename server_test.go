@@ -22,7 +22,8 @@ func Test_main(t *testing.T) {
 		},
 	}
 
-	app := SetupApp()
+	db := SetupDb()
+	app := SetupApp(db)
 
 	for _, test := range tests {
 		// from the test case
@@ -56,7 +57,7 @@ func Test_rates(t *testing.T) {
 	}{
 		{
 			description:  "check default rates",
-			route:        "/rates",
+			route:        "/rates-v1",
 			expectedCode: 200,
 			response: RatesCurrencyResponse{
 				USD: RatesCryptoBlock{
@@ -78,7 +79,7 @@ func Test_rates(t *testing.T) {
 		},
 		{
 			description:  "check fiat rates",
-			route:        "/rates?base=fiat",
+			route:        "/rates-v1?base=fiat",
 			expectedCode: 200,
 			response: RatesCurrencyResponse{
 				USD: RatesCryptoBlock{
@@ -100,7 +101,7 @@ func Test_rates(t *testing.T) {
 		},
 		{
 			description:  "check crypto rates",
-			route:        "/rates?base=crypto",
+			route:        "/rates-v1?base=crypto",
 			expectedCode: 200,
 			response: RatesCryptoResponse{
 				BTC: RatesCurrencyBlock{
@@ -122,13 +123,14 @@ func Test_rates(t *testing.T) {
 		},
 		{
 			description:  "check incorrect base params",
-			route:        "/rates?base=error",
+			route:        "/rates-v1?base=error",
 			expectedCode: 422,
 			response:     "[base]: 'error' value error",
 		},
 	}
 
-	app := SetupApp()
+	db := SetupDb()
+	app := SetupApp(db)
 
 	for _, test := range tests {
 		mockRes := ExchangeResponse{
@@ -188,7 +190,7 @@ func Test_rates(t *testing.T) {
 		// verify that no error occured, that is not expected
 		// Verify if the status code is as expected
 		assert.Equalf(t, test.expectedCode, res.StatusCode, test.description)
-		if test.route == "/rates?base=crypto" {
+		if test.route == "/rates-v1?base=crypto" {
 			sample := new(RatesCryptoResponse)
 			defer res.Body.Close()
 			json.NewDecoder(res.Body).Decode(sample)

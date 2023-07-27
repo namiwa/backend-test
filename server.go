@@ -14,8 +14,8 @@ import (
 )
 
 func main() {
-	app := SetupApp()
 	db := SetupDb()
+	app := SetupApp(db)
 	SetupCron(db)
 	defer db.Close()
 	log.Fatal(app.Listen(":3000"))
@@ -24,7 +24,15 @@ func main() {
 	}
 }
 
-func SetupApp() *fiber.App {
+func GetDBFile() string {
+	if flag.Lookup("test.v") == nil {
+		return "./main.db"
+	}
+
+	return "./test.db"
+}
+
+func SetupApp(db *sql.DB) *fiber.App {
 	app := fiber.New()
 	app.Use(recover.New())
 
@@ -32,7 +40,7 @@ func SetupApp() *fiber.App {
 		return c.SendString("Backend is very healthy!")
 	})
 
-	app.Get("/rates", func(c *fiber.Ctx) error {
+	app.Get("/rates-v1", func(c *fiber.Ctx) error {
 		base := c.Query("base")
 		payload := &ExchangePayload{
 			Base: &base,
@@ -51,17 +59,33 @@ func SetupApp() *fiber.App {
 		}
 	})
 
+	app.Get("/rates", func(c *fiber.Ctx) error {
+		base := c.Query("base")
+		payload := &ExchangePayload{
+			Base: &base,
+		}
+		errMsg := validateExchangePayload(payload)
+		if errMsg != nil {
+			return fiber.NewError(fiber.StatusUnprocessableEntity, *errMsg)
+		}
+		data := getExchangeDB(&base, db)
+		if data == nil {
+			return fiber.NewError(fiber.StatusUnprocessableEntity, "error fetching from db")
+		}
+		if *payload.Base == "crypto" {
+			res := parseCryptoResponse(data)
+			return c.JSON(res)
+		} else {
+			res := parseFiatResponse(data)
+			return c.JSON(res)
+		}
+	})
+
 	return app
 }
 
 func SetupDb() *sql.DB {
-	var db_file string
-	if flag.Lookup("test.v") == nil {
-		db_file = "./main.db"
-	} else {
-		db_file = "./test.db"
-	}
-
+	db_file := GetDBFile()
 	db, err := sql.Open("sqlite3", db_file)
 	if err != nil {
 		log.Fatal(err)

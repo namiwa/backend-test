@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -186,4 +187,74 @@ func getExchange(base *string) *ExchangeResponse {
 	}
 	getJson(url, exchange_response)
 	return exchange_response
+}
+
+func getExchangeDB(base *string, db *sql.DB) *ExchangeResponse {
+	fetchSql := `
+	select * from rates
+	order by id DESC 
+	limit 1;
+	`
+	rows, err := db.Query(fetchSql)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	defer rows.Close()
+	var resp ExchangeResponse
+	for rows.Next() {
+		var id int
+		var sgd float64
+		var eur float64
+		var btc float64
+		var doge float64
+		var eth float64
+		err = rows.Scan(
+			&id,
+			&sgd,
+			&eur,
+			&btc,
+			&doge,
+			&eth,
+		)
+		if err != nil {
+			fmt.Println(err)
+			return nil
+		}
+
+		resp = ExchangeResponse{
+			Data: struct {
+				Currency string "json:\"currency\""
+				Rates    struct {
+					USD  json.Number "json:\"USD\""
+					SGD  json.Number "json:\"SGD\""
+					EUR  json.Number "json:\"EUR\""
+					BTC  json.Number "json:\"BTC\""
+					DOGE json.Number "json:\"DOGE\""
+					ETH  json.Number "json:\"ETH\""
+				} "json:\"rates\""
+			}{
+				Currency: "USD",
+				Rates: struct {
+					USD  json.Number "json:\"USD\""
+					SGD  json.Number "json:\"SGD\""
+					EUR  json.Number "json:\"EUR\""
+					BTC  json.Number "json:\"BTC\""
+					DOGE json.Number "json:\"DOGE\""
+					ETH  json.Number "json:\"ETH\""
+				}{
+					USD:  "1",
+					SGD:  json.Number(fmt.Sprintf("%f", sgd)),
+					EUR:  json.Number(fmt.Sprintf("%f", eur)),
+					BTC:  json.Number(fmt.Sprintf("%f", btc)),
+					DOGE: json.Number(fmt.Sprintf("%f", doge)),
+					ETH:  json.Number(fmt.Sprintf("%f", eth)),
+				},
+			},
+		}
+
+		return &resp
+	}
+
+	return nil
 }
