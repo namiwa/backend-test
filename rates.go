@@ -226,6 +226,7 @@ func getExchangeDB(base *string, db *sql.DB) *ExchangeResponse {
 		var btc float64
 		var doge float64
 		var eth float64
+		var usd float64
 		err = rows.Scan(
 			&id,
 			&sgd,
@@ -233,6 +234,7 @@ func getExchangeDB(base *string, db *sql.DB) *ExchangeResponse {
 			&btc,
 			&doge,
 			&eth,
+			&usd,
 		)
 		if err != nil {
 			fmt.Println(err)
@@ -260,7 +262,7 @@ func getExchangeDB(base *string, db *sql.DB) *ExchangeResponse {
 					DOGE json.Number "json:\"DOGE\""
 					ETH  json.Number "json:\"ETH\""
 				}{
-					USD:  "1",
+					USD:  json.Number(fmt.Sprintf("%f", usd)),
 					SGD:  json.Number(fmt.Sprintf("%f", sgd)),
 					EUR:  json.Number(fmt.Sprintf("%f", eur)),
 					BTC:  json.Number(fmt.Sprintf("%f", btc)),
@@ -297,7 +299,8 @@ func getExchangeHistoric(payload ExchangeHistoricPayload, db *sql.DB) *HistoricR
 
 	fetchSql := fmt.Sprintf(`
 	select %s, %s, id from rates
-	where id >= %d and id <= %d;
+	where id >= %d and id <= %d
+	order by id asc;
 	`, base, target, start, end)
 
 	rows, err := db.Query(fetchSql)

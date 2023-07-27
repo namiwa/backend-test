@@ -160,9 +160,10 @@ func SetupCron(db *sql.DB) {
 
 		insertSql := fmt.Sprintf(`
 		insert into 
-			rates(id, SGD, EUR, BTC, DOGE, ETH)
+			rates(id, SGD, EUR, BTC, DOGE, ETH, USD)
 		values(
 			'%d',
+			%f,
 			%f,
 			%f,
 			%f,
@@ -175,6 +176,7 @@ func SetupCron(db *sql.DB) {
 			btc,
 			doge,
 			eth,
+			1.0,
 		)
 		fmt.Println("writing statement", insertSql)
 		_, err := db.Exec(insertSql)
