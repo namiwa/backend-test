@@ -100,3 +100,7 @@ Golang & SQLite3 were used since the language natively supports async operations
 ## Testing
 
 Was validated for only rates-v1 and rates, running `go test`
+
+## Release
+
+The three releases are used to easliy switched between version 1 to 3. Each tags are `v1.0, v2.0 and v3.0`
